@@ -1,0 +1,96 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Kim Soon"
+date: "6 April 2016"
+output: html_document
+---
+
+#Weight Lifting Exercise Type Prediction
+
+###Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Load library
+Load the library that is needed.
+```{r library}
+library(caret)
+```
+
+###Data Processing
+As of a start, check if the files "pml-training.csv" and "pml-testing.csv" exist, else we download the file from the URL.
+```{r downloadfile}
+trainingurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+
+testingurl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+if(!file.exists("pml-training.csv")){
+    setInternet2(TRUE)
+    download.file(trainingurl,destfile = "./pml-training.csv",method = "auto")
+}
+
+if(!file.exists("pml-testing.csv")){
+    setInternet2(TRUE)
+    download.file(testingurl,destfile = "./pml-testing.csv",method = "auto")
+}
+```
+
+Once the files are ready, start process the data using R function read.csv
+```{r readcsv}
+pml.training <- read.csv("pml-training.csv")
+pml.testing <- read.csv("pml-testing.csv")
+```
+
+###Data exploratory and data cleaning
+We will have some quite glance on the training data dimension, structure and the variable names by using R function 'dim', 'str' and 'colnames'.
+```{r dataexploratory}
+dim(pml.training)
+str(pml.training)
+colnames(pml.training)
+```
+From the dimension, there is 19622 observations and 160 variables. While from the variable names, we don't need all the variables, since we interest on the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, hence we will choose the variables that is needed.
+```{r filter}
+flt.pml.training <- pml.training[,grep("accel",names(pml.training))]
+flt.pml.training$user_name <- pml.training$user_name
+flt.pml.training$classe <- pml.training$classe
+
+str(flt.pml.training)
+```
+After filter the variable that is need, by looking at the structure again, we notice there are quite numbers of missing value for the variances of each categories, hence we will remove the variance variables.
+
+```{r filtervariance}
+flt.pml.training <- flt.pml.training[,-grep("var",names(flt.pml.training))]
+
+sum(complete.cases(flt.pml.training))
+```
+After removing the variable variance, we can see the complete cases is 19622, next step we will start cross validation.
+
+###Cross validation
+After cleaning the data, we will use the training data and split it into training and test set, in the ratio of 6:4
+```{r xvalidation}
+set.seed(123) ##set seed so the result can be reproducible
+inTrain <- createDataPartition(flt.pml.training$classe,p=0.6,list = FALSE)
+training <- flt.pml.training[inTrain,]
+testing <- flt.pml.training[-inTrain,]
+```
+
+###Build Model
+In this scenario, random forest being choose to build the model as it involve of classification and regression, while random forest can result high accuracy.
+```{r buildmodel}
+modfit <- train(classe~.,method="rf",data=training)
+```
+
+After the model is build, cross check the accuracy of the model with the test dataset using confusion matrix.
+```{r checktestdata}
+pred <- predict(modfit,newdata = testing)
+
+confusionMatrix(pred,testing$classe)
+```
+From the confusion matrix result, we are seeing 93.61% accurary.
+
+###Predict 20 different test cases
+Using this model, we will try to predict the 20 test cases
+```{r check20testcase}
+pred20test <- predict(modfit,newdata = pml.testing)
+pred20test
+```
+The prediction is per shown.
